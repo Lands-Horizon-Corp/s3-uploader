@@ -2009,6 +2009,7 @@ dependencies = [
  "aws-sdk-s3",
  "axum",
  "axum-extra",
+ "bytes",
  "clap",
  "dialoguer",
  "dotenvy",

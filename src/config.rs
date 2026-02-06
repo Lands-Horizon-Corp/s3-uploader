@@ -33,13 +33,18 @@ impl StorageConfig {
             bail!("Access key and secret key must be provided via parameters or environment variables");
         }
 
+        let max_size = env::var("STORAGE_MAX_SIZE")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(1024 * 1024 * 1024);
+
         Ok(StorageConfig {
             bucket,
             region,
             access_key,
             secret_key,
             endpoint,
-            max_size: cli.max_size,
+            max_size,
         })
     }
 }
