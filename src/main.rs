@@ -7,7 +7,7 @@ use aws_sdk_s3::{
     Client,
 };
 use clap::{Parser, Subcommand};
-use dialoguer::Input;
+use dotenvy::dotenv;
 use std::{env, fs, path::Path, time::Duration};
 use tokio::io::AsyncWriteExt;
 
@@ -114,80 +114,66 @@ struct AppContext {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv().ok();
+    dotenv().ok();
 
-    // Load config from env
-    let bucket = env::var("STORAGE_BUCKET")?;
-    let region = env::var("STORAGE_REGION")?;
-    let access_key = env::var("STORAGE_ACCESS_KEY")?;
-    let secret_key = env::var("STORAGE_SECRET_KEY")?;
-    let endpoint = env::var("STORAGE_URL").ok();
-    let max_size: u64 = env::var("STORAGE_MAX_SIZE")?.parse()?;
+    let cli = Cli::parse();
 
-    // Ask user for file path
-    let file_path: String = Input::new()
-        .with_prompt("Enter path of the file to upload")
-        .interact_text()?;
+    // Initialize context
+    let ctx = AppContext {
+        config: load_config(&cli)?,
+        verbose: cli.verbose,
+    };
 
-    let path = Path::new(&file_path);
-    if !path.exists() {
-        bail!("File does not exist: {}", file_path);
+    match cli.command {
+        Commands::Upload { file_path } => {
+            let info = upload_file(&file_path, &ctx).await?;
+
+            if ctx.verbose {
+                println!("✅ Upload successful!");
+                println!("File: {}", info.file_name);
+                println!("Bucket: {}", info.bucket);
+                println!("Region: {}", info.region);
+                println!("Size: {} bytes", info.size);
+                println!("Download URL (expires in 1 hour): {}", info.download_url);
+            } else {
+                println!("Uploaded: {} ({})", info.file_name, format_size(info.size));
+            }
+        }
+        Commands::Download {
+            file_name,
+            output,
+            presign,
+            expires,
+        } => {
+            if presign {
+                let url = generate_presigned_url(&file_name, expires, &ctx).await?;
+                if ctx.verbose {
+                    println!("Presigned URL (expires in {} seconds):", expires);
+                    println!("{}", url);
+                } else {
+                    println!("{}", url);
+                }
+            } else {
+                download_file(&file_name, output.as_deref(), &ctx).await?;
+                if ctx.verbose {
+                    println!("✅ Download successful!");
+                } else {
+                    println!("Downloaded: {}", file_name);
+                }
+            }
+        }
+        Commands::List { prefix, limit } => {
+            list_files(prefix.as_deref(), limit, &ctx).await?;
+        }
+        Commands::Delete { file_name } => {
+            delete_file(&file_name, &ctx).await?;
+            if ctx.verbose {
+                println!("✅ Deleted file: {}", file_name);
+            } else {
+                println!("Deleted: {}", file_name);
+            }
+        }
     }
-
-    let metadata = fs::metadata(path)?;
-    if metadata.len() > max_size {
-        bail!(
-            "File exceeds max size limit of {} bytes (actual size: {})",
-            max_size,
-            metadata.len()
-        );
-    }
-
-    println!("Uploading {} ...", path.display());
-
-    // Create S3 client
-    let credentials = Credentials::new(access_key, secret_key, None, None, "custom");
-    let region = Region::new(region.clone());
-
-    let mut config_loader = aws_config::ConfigLoader::default()
-        .region(region)
-        .credentials_provider(credentials);
-
-    if let Some(endpoint_url) = &endpoint {
-        config_loader = config_loader.endpoint_url(endpoint_url);
-    }
-
-    let sdk_config: SdkConfig = config_loader.load().await;
-    let client_config = aws_sdk_s3::config::Builder::from(&sdk_config)
-        .behavior_version_latest()
-        .build();
-    let client = Client::from_conf(client_config);
-
-    let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-    let body = ByteStream::from_path(path).await?;
-
-    // Upload file
-    client
-        .put_object()
-        .bucket(&bucket)
-        .key(&file_name)
-        .body(body)
-        .send()
-        .await?;
-
-    println!("✅ Upload completed!");
-
-    // Generate presigned URL valid for 1 hour
-    let presign_config = PresigningConfig::expires_in(Duration::from_secs(3600))?;
-    let presigned_req = client
-        .get_object()
-        .bucket(&bucket)
-        .key(&file_name)
-        .presigned(presign_config)
-        .await?;
-
-    println!("🔗 Presigned URL (valid 1 hour):");
-    println!("{}", presigned_req.uri());
 
     Ok(())
 }
