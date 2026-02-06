@@ -30,10 +30,10 @@ pub async fn start_server(config: StorageConfig, verbose: bool, port: u16) -> Re
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024));
 
     if verbose {
-        println!("🚀 Server running at http://127.0.0.1:{}", port);
+        println!("🚀 Server running at http://0.0.0.0:{}", port);
     }
 
-    let addr = format!("127.0.0.1:{}", port);
+    let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
 
