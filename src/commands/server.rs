@@ -15,6 +15,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
 pub async fn start_server(config: StorageConfig, verbose: bool, port: u16) -> Result<()> {
+    println!("Starting server on 0.0.0.0:{}", port);
     let shared_config = Arc::new(config);
 
     let app = Router::new()

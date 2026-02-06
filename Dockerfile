@@ -24,3 +24,4 @@ EXPOSE 8080
 
 # Entrypoint: use shell so $PORT and S3 env vars are expanded
 ENTRYPOINT ["/bin/sh", "-c", "./s3-uploader server --port ${PORT:-8080}"]
+
