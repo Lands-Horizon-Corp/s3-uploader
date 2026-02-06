@@ -1,11 +1,17 @@
-FROM rust:1.77 AS builder
+FROM rust:latest AS builder
 WORKDIR /usr/src/app
 
-# Copy everything at once
 COPY . .
 
-# Now fetch dependencies
-RUN cargo fetch
-
-# Build release binary
+# Build release binary directly (fetch is optional now)
 RUN cargo build --release
+
+FROM debian:bullseye-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/src/app/target/release/your_binary_name .
+COPY --from=builder /usr/src/app/files ./files
+
+EXPOSE 8080
+ENTRYPOINT ["./your_binary_name"]
