@@ -97,44 +97,77 @@ async fn handle_upload(
 ) -> Html<String> {
     use std::str::FromStr;
 
-    let mut uploaded_path = None;
+    println!("🚀 Starting upload handler");
+
+    let mut uploaded_files = Vec::new();
     let mut ttl_seconds: u64 = 3600; // default 1 hour
 
-    // Loop through all fields
-    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
+    while let Ok(Some(mut field)) = multipart.next_field().await {
+        println!("🔹 Processing field: {:?}", field.name());
+
         match field.name() {
             Some("file") => {
                 if let Some(filename) = field.file_name() {
-                    let filename = filename.to_string(); // clone to own
+                    println!("📄 Uploading file: {}", filename);
+                    let filename = filename.to_string();
                     let temp_path = std::env::temp_dir().join(&filename);
-                    let mut file = File::create(&temp_path).await.unwrap();
-                    let data = field.bytes().await.unwrap();
-                    file.write_all(&data).await.unwrap();
-                    uploaded_path = Some(temp_path);
 
-                    if verbose {
-                        println!("Uploaded file temporarily saved: {:?}", filename);
+                    // Stream chunks to temp file
+                    match File::create(&temp_path).await {
+                        Ok(mut file) => {
+                            println!("📝 Created temp file: {:?}", temp_path);
+
+                            while let Ok(Some(chunk)) = field.chunk().await {
+                                if verbose {
+                                    println!("⬇️ Writing chunk: {} bytes", chunk.len());
+                                }
+                                if let Err(e) = file.write_all(&chunk).await {
+                                    eprintln!("❌ Failed writing chunk: {:?}", e);
+                                    return Html(format!("Failed to write file: {:?}", e));
+                                }
+                            }
+
+                            uploaded_files.push(temp_path.clone());
+                            println!("✅ File saved successfully: {:?}", temp_path);
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Failed to create temp file: {:?}", e);
+                            return Html(format!("Failed to create temp file: {:?}", e));
+                        }
                     }
                 }
             }
             Some("ttl_value") => {
                 if let Ok(val) = u64::from_str(&field.text().await.unwrap_or_default()) {
-                    ttl_seconds = val; // temporarily store, will convert with unit
+                    ttl_seconds = val;
+                    println!("⏱ TTL value set: {}", ttl_seconds);
                 }
             }
             Some("ttl_unit") => {
                 let unit = field.text().await.unwrap_or_default();
                 ttl_seconds = match unit.as_str() {
-                    "minutes" => ttl_seconds * 60,
-                    "hours" => ttl_seconds * 3600,
+                    "minutes" => ttl_seconds.saturating_mul(60),
+                    "hours" => ttl_seconds.saturating_mul(3600),
                     _ => ttl_seconds,
                 };
+                println!("⏱ TTL unit applied: {} seconds", ttl_seconds);
             }
-            _ => {}
+            other => {
+                println!("⚠️ Ignored field: {:?}", other);
+            }
         }
     }
 
-    if let Some(path) = uploaded_path {
+    if uploaded_files.is_empty() {
+        eprintln!("❌ No files uploaded");
+        return Html("No file uploaded".to_string());
+    }
+
+    // Upload each file to S3 and spawn TTL deletion
+    let mut results = Vec::new();
+    for path in uploaded_files {
+        println!("🚀 Uploading to S3: {:?}", path);
+
         match crate::commands::upload::upload_file(
             &path.to_string_lossy(),
             &config,
@@ -143,15 +176,37 @@ async fn handle_upload(
         )
         .await
         {
-            Ok(info) => Html(format!(
-                "<p>File uploaded successfully!</p>
-                 <p>Expires in: {} seconds</p>
-                 <p>Download URL: <a href='{}'>{}</a></p>",
-                ttl_seconds, info.download_url, info.download_url
-            )),
-            Err(e) => Html(format!("Upload failed: {:?}", e)),
+            Ok(info) => {
+                println!("✅ Upload completed: {}", info.download_url);
+
+                // Spawn background task to delete temp file after TTL
+                let path_clone = path.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(ttl_seconds)).await;
+                    match tokio::fs::remove_file(&path_clone).await {
+                        Ok(_) => println!("🗑️ File {:?} deleted after TTL", path_clone),
+                        Err(e) => eprintln!(
+                            "❌ Failed to delete file {:?} after TTL: {:?}",
+                            path_clone, e
+                        ),
+                    }
+                });
+
+                results.push(format!(
+                    "<p>File: {} uploaded successfully! <br>Download: <a href='{}'>{}</a> <br>Expires in: {} seconds</p>",
+                    info.file_name, info.download_url, info.download_url, ttl_seconds
+                ));
+            }
+            Err(e) => {
+                eprintln!("❌ Upload failed for {:?}: {:?}", path, e);
+                results.push(format!(
+                    "<p>Upload failed for {:?}: {:?}</p>",
+                    path.file_name().unwrap(),
+                    e
+                ));
+            }
         }
-    } else {
-        Html("No file uploaded".to_string())
     }
+
+    Html(results.join("<hr>"))
 }
