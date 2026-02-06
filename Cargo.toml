@@ -3,11 +3,15 @@ name = "s3-uploader"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "s3_uploader"
+crate-type = ["cdylib"]
+
 [dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
 anyhow = "1.0"
 aws-config = "1.8.13"
 aws-sdk-s3 = "1.122.0"
 dotenvy = "0.15"
 mime_guess = "2.0"
 tokio = { version = "1.35", features = ["full"] }
-clap = { version = "4.4", features = ["derive"] }
