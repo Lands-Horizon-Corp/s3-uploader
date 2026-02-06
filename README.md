@@ -2,7 +2,7 @@
 
 # S3 Storage CLI
 
-A simple CLI tool written in Rust for **uploading, downloading, listing, and deleting files** from S3-compatible storage. It also supports **presigned URLs** for secure temporary access.
+A **Rust CLI tool** for managing files on **S3-compatible storage**. You can upload, download, list, delete files, and generate **presigned URLs** for secure temporary access.
 
 ---
 
@@ -10,12 +10,12 @@ A simple CLI tool written in Rust for **uploading, downloading, listing, and del
 
 * Upload files to an S3 bucket
 * Download files from an S3 bucket
-* Generate presigned URLs for temporary file access
+* Generate presigned URLs for temporary access
 * List files with optional prefix filtering
 * Delete files from the bucket
 * Verbose mode for detailed output
-* Configurable via environment variables or CLI options
-* Supports S3-compatible storage endpoints
+* Fully configurable via **environment variables** or **CLI flags**
+* Supports any **S3-compatible endpoint**
 
 ---
 
@@ -28,7 +28,7 @@ git clone <your-repo-url>
 cd <your-repo-folder>
 ```
 
-2. Set up Rust:
+2. Install Rust:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -51,22 +51,20 @@ cargo run -- <COMMAND>
 
 ## Configuration
 
-You can configure the CLI either via **environment variables** or **CLI flags**.
-
 ### Environment Variables
 
 | Variable             | Description                | Default              |
 | -------------------- | -------------------------- | -------------------- |
-| `STORAGE_BUCKET`     | Storage bucket name        | `default-bucket`     |
+| `STORAGE_BUCKET`     | Bucket name                | `default-bucket`     |
 | `STORAGE_REGION`     | Storage region             | `us-east-1`          |
-| `STORAGE_ACCESS_KEY` | Access key for storage     | *required*           |
-| `STORAGE_SECRET_KEY` | Secret key for storage     | *required*           |
+| `STORAGE_ACCESS_KEY` | Access key                 | *required*           |
+| `STORAGE_SECRET_KEY` | Secret key                 | *required*           |
 | `STORAGE_URL`        | S3-compatible endpoint URL | optional             |
-| `STORAGE_MAX_SIZE`   | Maximum file size in bytes | `104857600` (100 MB) |
+| `STORAGE_MAX_SIZE`   | Max file size in bytes     | `104857600` (100 MB) |
 
-### CLI Options
+### CLI Flags
 
-All environment variables can be overridden with CLI flags:
+All environment variables can be overridden:
 
 ```text
 --bucket <BUCKET_NAME>
@@ -82,7 +80,9 @@ All environment variables can be overridden with CLI flags:
 
 ## Commands
 
-### Upload a file
+### Upload
+
+Upload a file to the S3 bucket:
 
 ```bash
 cargo run -- upload <FILE_PATH>
@@ -91,8 +91,8 @@ cargo run -- upload <FILE_PATH>
 **Options:**
 
 * `--verbose` – Show detailed output
-* `--bucket` – Specify a custom bucket
-* `--max-size` – Override maximum file size
+* `--bucket` – Specify a different bucket
+* `--max-size` – Override max file size
 
 **Example:**
 
@@ -102,7 +102,9 @@ cargo run -- --verbose upload ./example.pdf
 
 ---
 
-### Download a file
+### Download
+
+Download a file or generate a presigned URL:
 
 ```bash
 cargo run -- download <FILE_NAME>
@@ -110,9 +112,9 @@ cargo run -- download <FILE_NAME>
 
 **Options:**
 
-* `--output <FILE_PATH>` – Save file to custom path
+* `--output <FILE_PATH>` – Save to custom location
 * `--presign` – Generate presigned URL instead of downloading
-* `--expires <SECONDS>` – Expiry time for presigned URL (default 3600)
+* `--expires <SECONDS>` – Expiry for presigned URL (default: 3600)
 * `--verbose` – Show detailed output
 
 **Examples:**
@@ -130,7 +132,9 @@ cargo run -- --verbose download example.pdf --presign --expires 1800
 
 ---
 
-### List files
+### List Files
+
+List files in the bucket:
 
 ```bash
 cargo run -- list
@@ -139,7 +143,7 @@ cargo run -- list
 **Options:**
 
 * `--prefix <PREFIX>` – Filter files by prefix
-* `--limit <NUMBER>` – Maximum number of files to list
+* `--limit <NUMBER>` – Max files to list (default: 100)
 * `--verbose` – Show detailed output
 
 **Examples:**
@@ -148,13 +152,15 @@ cargo run -- list
 # List all files
 cargo run -- --verbose list
 
-# List files with a prefix
+# List files with prefix
 cargo run -- --verbose list --prefix images/
 ```
 
 ---
 
-### Delete a file
+### Delete File
+
+Delete a file from the bucket:
 
 ```bash
 cargo run -- delete <FILE_NAME>
@@ -172,24 +178,38 @@ cargo run -- --verbose delete example.pdf
 
 ---
 
+### Server
+
+Start a web UI server:
+
+```bash
+cargo run -- server
+```
+
+**Options:**
+
+* `--port <PORT>` – Port to run the server (default: 8080)
+
+---
+
 ## Presigned URLs
 
-* Presigned URLs allow temporary access to files without exposing credentials.
-* Default expiration is **1 hour (3600 seconds)**.
-* Custom expiration can be set with `--expires`.
+* Allow temporary access to files without exposing credentials
+* Default expiration: 1 hour (3600 seconds)
+* Custom expiration: `--expires <SECONDS>`
 
 ---
 
 ## Max File Size
 
-* By default, the maximum upload file size is **100 MB**.
-* You can override with `--max-size <BYTES>` or `STORAGE_MAX_SIZE` environment variable.
+* Default: 100 MB
+* Override with `--max-size <BYTES>` or `STORAGE_MAX_SIZE`
 
 ---
 
 ## Verbose Mode
 
-* Enable verbose mode with `--verbose` to see detailed steps during upload/download/list/delete operations.
+Enable `--verbose` to see detailed steps during any operation.
 
 ---
 
@@ -202,7 +222,7 @@ cargo run -- --verbose upload ./report.pdf
 # Download a file quietly
 cargo run -- download report.pdf
 
-# Generate a presigned URL for a file
+# Generate a presigned URL
 cargo run -- download report.pdf --presign --expires 1800
 
 # List files with prefix
