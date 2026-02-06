@@ -13,3 +13,8 @@ tokio = { version = "1.35", features = ["full"] }
 clap = { version = "4.4", features = ["derive"] }
 futures = "0.3"
 dialoguer = "0.12.0"
+warp = "0.4.2"
+axum = "0.8.8"
+futures-util = "0.3.31"
+axum-extra = { version = "0.12.5", features = ["multipart"] }
+hyper = "1.8.1"

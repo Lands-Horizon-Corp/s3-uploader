@@ -41,46 +41,36 @@ pub struct Cli {
 pub enum Commands {
     /// Upload a file to storage
     Upload {
-        /// Path to the file to upload
         file_path: String,
-
-        /// Expiry time for presigned URL in seconds (default 3600)
         #[arg(long, default_value_t = 3600)]
         expires: u64,
     },
 
     /// Download a file from storage
     Download {
-        /// File name in storage to download
         file_name: String,
-
-        /// Output file path (defaults to current directory with same filename)
         #[arg(long)]
         output: Option<String>,
-
-        /// Generate presigned URL instead of downloading
         #[arg(long)]
         presign: bool,
-
-        /// Expiry time for presigned URL in seconds (default 3600)
         #[arg(long, default_value_t = 3600)]
         expires: u64,
     },
 
     /// List files in storage bucket
     List {
-        /// List files with this prefix
         #[arg(long)]
         prefix: Option<String>,
-
-        /// Maximum number of files to list
         #[arg(long, default_value_t = 100)]
         limit: i32,
     },
 
     /// Delete a file from storage
-    Delete {
-        /// File name in storage to delete
-        file_name: String,
+    Delete { file_name: String },
+
+    /// Start web UI server
+    Server {
+        #[arg(long, default_value_t = 8080)]
+        port: u16,
     },
 }

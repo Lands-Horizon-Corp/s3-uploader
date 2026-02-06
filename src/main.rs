@@ -1,15 +1,15 @@
-use anyhow::Result;
-use clap::Parser;
-use dotenvy::dotenv;
-
 mod cli;
 mod commands;
 mod config;
 mod s3_client;
 mod utils;
 
+use anyhow::Result;
+use clap::Parser;
+use dotenvy::dotenv;
+
 use cli::{Cli, Commands};
-use commands::{delete, download, list, upload};
+use commands::{delete, download, list, server, upload};
 use config::StorageConfig;
 
 #[tokio::main]
@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
                 &file_name,
                 output.as_deref(),
                 *presign,
-                *expires, // just pass u64, no Option
+                *expires,
                 &config,
                 cli.verbose,
             )
@@ -47,6 +47,10 @@ async fn main() -> Result<()> {
         Commands::Delete { file_name } => {
             delete::delete_file(&file_name, &config, cli.verbose).await?;
         }
+        Commands::Server { port } => {
+            server::start_server(config, cli.verbose, *port).await?;
+        }
     }
+
     Ok(())
 }
