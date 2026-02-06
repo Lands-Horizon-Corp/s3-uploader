@@ -22,5 +22,5 @@ COPY --from=builder /usr/src/app/files ./files
 # Expose port for server
 EXPOSE 8080
 
-# Entrypoint: run server using PORT from Railway
-ENTRYPOINT ["./s3-uploader", "server", "--port", "8080"]
+# Entrypoint: use shell so $PORT and S3 env vars are expanded
+ENTRYPOINT ["/bin/sh", "-c", "./s3-uploader server --port ${PORT:-8080}"]
