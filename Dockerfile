@@ -1,11 +1,11 @@
-FROM rust:latest AS builder
+# Stage 1: Build Rust binary on Debian Bullseye
+FROM rust:bullseye AS builder
 WORKDIR /usr/src/app
 
 COPY . .
-
-# Build release binary directly (fetch is optional now)
 RUN cargo build --release
 
+# Stage 2: Runtime
 FROM debian:bullseye-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
